@@ -24,7 +24,9 @@ function saveHiddenImages(list) {
 // Process all images on the page, comparing against the hidden list
 async function processImages() {
   const { hidden, display } = await getSettings();
-  
+
+  displayMode = display || "indicate";
+
   // Handle all img tags
   document.querySelectorAll("img").forEach(img => {
     // Skip already processed images with same hidden state
@@ -35,7 +37,7 @@ async function processImages() {
     }
     
     if (hidden.includes(img.src)) {
-      if (display === "indicate") {
+      if (displayMode === "indicate") {
         // Check if shell already exists
         const existingShell = Array.from(document.querySelectorAll(`.${SHELL_CLASS}`))
           .find(shell => shell.dataset.originalSrc === img.src);
@@ -83,6 +85,17 @@ function createImageShell(img) {
   shell.style.display = computedStyle.display;
   shell.style.margin = computedStyle.margin;
   shell.style.border = "1px solid black";
+  shell.style.textAlign = "center";
+  shell.style.lineHeight = `${height}px`;
+  shell.style.backgroundColor = "#f0f0f0";
+  shell.style.cursor = "pointer";
+  shell.title = "This image has been marked as AI generated";
+  shell.onclick = () => {
+    chrome.runtime.sendMessage({
+      action: "showImage",
+      src: img.src
+    });
+  };
   shell.textContent = "AI Image Removed";
   shell.tabIndex = 0;
   

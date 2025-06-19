@@ -3,7 +3,7 @@ const IMAGE_MENU_ID = "removeaiart-hide-image";
 const SHELL_MENU_ID = "removeaiart-show-image";
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({ hiddenImages: [], displayMode: 'indication' });
+  chrome.storage.local.set({ hiddenImages: [], displayMode: 'indicate' });
 
   chrome.contextMenus.create({
     id: IMAGE_MENU_ID,
