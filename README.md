@@ -1,0 +1,1 @@
+This is the quickest solution to the problem I'm having of seeing the same annoying AI generated images over and over again. This Chrome Extension removes all instances of any user marked images, just matching for now based on src, using local storage to remember.
