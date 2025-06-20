@@ -1,241 +1,179 @@
-// content_script.js
-const HIDDEN_KEY = "hiddenImages";
-const DISPLAY_KEY = "displayMode";
-const SHELL_CLASS = "image-shell";
+// storage keys
+const SRC_KEY    = "hiddenSrc";
+const HASH_KEY   = "hiddenHashes";
+const DISPLAY_KEY= "displayMode";
+const SHELL_CLASS= "image-shell";
 
+// wrapper for storage
 function getSettings() {
-  return new Promise(resolve => {
-    chrome.storage.local.get([HIDDEN_KEY, DISPLAY_KEY], (data) => {
-      resolve({
-        hidden: Array.isArray(data[HIDDEN_KEY]) ? data[HIDDEN_KEY] : [],
-        display: data[DISPLAY_KEY] || "indicate"
+  return new Promise(r => {
+    chrome.storage.local.get([SRC_KEY, HASH_KEY, DISPLAY_KEY], data => {
+      r({
+        srcs:    Array.isArray(data[SRC_KEY]) ? data[SRC_KEY] : [],
+        hashes:  Array.isArray(data[HASH_KEY])? data[HASH_KEY]: [],
+        display: data[DISPLAY_KEY] || 'indicate'
       });
     });
   });
 }
-
-function saveHiddenImages(list) {
-  // Just the simplest local storage implentation for now
-  return new Promise(resolve => {
-    chrome.storage.local.set({ [HIDDEN_KEY]: list }, resolve);
+function saveSettings(updates) {
+  return new Promise(r => {
+    chrome.storage.local.set(updates, r);
   });
 }
 
-// Process all images on the page, comparing against the hidden list
-async function processImages() {
-  const { hidden, display } = await getSettings();
+// Simple perceptual hashing function
+function computeImageHash(img) {
+  return new Promise((resolve, reject) => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 8; // Downscale to 8x8
+      canvas.height = 8;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  displayMode = display || "indicate";
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
 
-  // Handle all img tags
-  document.querySelectorAll("img").forEach(img => {
-    // Skip already processed images with same hidden state
-    if (img.dataset.processed === "true" && 
-        ((hidden.includes(img.src) && img.dataset.hidden === "true") || 
-         (!hidden.includes(img.src) && img.dataset.hidden !== "true"))) {
-      return;
+      // Convert to grayscale and calculate average brightness
+      const grayscale = [];
+      let totalBrightness = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const brightness = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+        grayscale.push(brightness);
+        totalBrightness += brightness;
+      }
+      const avgBrightness = totalBrightness / grayscale.length;
+
+      // Generate hash based on brightness compared to average
+      const hash = grayscale.map(b => (b > avgBrightness ? 1 : 0)).join('');
+      resolve(hash);
+    } catch (error) {
+      reject(error);
     }
-    
-    if (hidden.includes(img.src)) {
-      if (displayMode === "indicate") {
-        // Check if shell already exists
-        const existingShell = Array.from(document.querySelectorAll(`.${SHELL_CLASS}`))
-          .find(shell => shell.dataset.originalSrc === img.src);
-        
-        if (!existingShell) {
-          const shell = createImageShell(img);
+  });
+}
+
+// decorate page images
+async function processImages() {
+  const { srcs, hashes, display } = await getSettings();
+
+  document.querySelectorAll('img').forEach(async img => {
+    if (img.dataset.processed === 'true') return;
+    img.dataset.processed = 'true';
+
+    // compute or reuse hash
+    let ph = img.dataset.phash;
+    if (!ph) {
+      try {
+        ph = await computeImageHash(img);
+        img.dataset.phash = ph;
+      } catch {
+        // if cannot compute, skip perceptual match
+        ph = null;
+      }
+    }
+
+    const isHidden = srcs.includes(img.src) || (ph && hashes.includes(ph));
+    if (isHidden) {
+      if (display === 'indicate') {
+        if (!document.querySelector(`.${SHELL_CLASS}[data-original-src="${img.src}"]`)) {
+          const shell = createShell(img);
           img.parentNode.insertBefore(shell, img);
         }
-        
-        img.style.display = "none";
-        img.dataset.hidden = "true";
-      } else {
-        img.style.display = "none";
-        img.dataset.hidden = "true";
       }
+      img.style.display = 'none';
+      img.dataset.hidden = 'true';
     } else {
-      img.style.display = "";
-      img.dataset.hidden = "false";
+      img.style.display = '';
+      img.dataset.hidden = 'false';
     }
-    
-    img.dataset.processed = "true";
   });
-  
-  // check for any existing that should be removed (no longer hidden)
+
+
   document.querySelectorAll(`.${SHELL_CLASS}`).forEach(shell => {
     const src = shell.dataset.originalSrc;
-    if (src && !hidden.includes(src)) {
+    const ph  = shell.dataset.phash;
+    if (!(srcs.includes(src) || (ph && hashes.includes(ph)))) {
       shell.remove();
     }
   });
 }
 
-function createImageShell(img) {
-  const shell = document.createElement("div");
+// shell placeholder
+function createShell(img) {
+  const shell = document.createElement('div');
+  const { width, height } = img.getBoundingClientRect();
   shell.className = SHELL_CLASS;
   shell.dataset.originalSrc = img.src;
-  
-  // Try to preserve dimensions of the original image for Shell Image
-  const computedStyle = window.getComputedStyle(img);
-  const width = img.width || parseInt(computedStyle.width) || 50;
-  const height = img.height || parseInt(computedStyle.height) || 50;
-  
-  shell.style.width = `${width}px`;
-  shell.style.height = `${height}px`;
-  shell.style.display = computedStyle.display;
-  shell.style.margin = computedStyle.margin;
-  shell.style.border = "1px solid black";
-  shell.style.textAlign = "center";
-  shell.style.lineHeight = `${height}px`;
-  shell.style.backgroundColor = "#f0f0f0";
-  shell.style.cursor = "pointer";
-  shell.title = "This image has been marked as AI generated";
-  shell.onclick = () => {
-    chrome.runtime.sendMessage({
-      action: "showImage",
-      src: img.src
-    });
-  };
+  if (img.dataset.phash) shell.dataset.phash = img.dataset.phash;
+
+  Object.assign(shell.style, {
+    width:      `${width}px`,
+    height:     `${height}px`,
+    display:    getComputedStyle(img).display,
+    margin:     getComputedStyle(img).margin,
+    border:     '1px solid #444',
+    background: '#eee',
+    cursor:     'pointer',
+    textAlign:  'center',
+    lineHeight: `${height}px`
+  });
   shell.textContent = "AI Image Removed";
-  shell.tabIndex = 0;
-  
+  shell.title = "Click to restore";
+  shell.onclick = () => {
+    chrome.runtime.sendMessage({ action:'showImage', src: img.src });
+  };
   return shell;
 }
 
-document.addEventListener("contextmenu", (e) => {
-  const target = e.target;
-  
-  if (target.tagName === "IMG") {
-    // Right-clicked on an image
-    chrome.runtime.sendMessage({ 
-      action: "updateContextMenu", 
-      showShellMenu: false 
-    });
-  } else if (target.classList.contains(SHELL_CLASS)) {
-    // Right-clicked on a shell
-    const src = target.dataset.originalSrc;
-    if (src) {
-      // Use selection to pass the src URL
-      const textNode = document.createTextNode(src);
-      target.appendChild(textNode);
-      
-      const range = document.createRange();
-      range.selectNodeContents(target);
-      
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      
-      // After selection is made, tell background to show shell menu
-      chrome.runtime.sendMessage({ 
-        action: "updateContextMenu", 
-        showShellMenu: true 
-      });
-      
-      // Clean up the text node after selection
-      setTimeout(() => {
-        target.removeChild(textNode);
-        selection.removeAllRanges();
-      }, 100);
-    }
-  } else {
-    // Right-clicked elsewhere - don't show this ext's menu
-    chrome.runtime.sendMessage({ 
-      action: "updateContextMenu", 
-      showShellMenu: false 
-    });
-  }
-});
-
+// hide-image handler
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.action === "hideImage" && msg.src) {
-    getSettings().then(async ({ hidden, display }) => {
-      if (!hidden.includes(msg.src)) {
-        hidden.push(msg.src);
-        await saveHiddenImages(hidden);
-        
-        // Extra extra - Hide ALL instances of this image on the page (by src)
-        document.querySelectorAll(`img[src="${msg.src}"]`).forEach(img => {
-          if (display === "indicate") {
-            const shell = createImageShell(img);
-            img.parentNode.insertBefore(shell, img);
-            img.style.display = "none";
-            img.dataset.hidden = "true";
-          } else {
-            img.style.display = "none";
-            img.dataset.hidden = "true";
-          }
-          img.dataset.processed = "true";
-        });
-        
+  if (msg.action === 'hideImage') {
+    (async () => {
+      const img = Array.from(document.images).find(i => i.src === msg.src);
+      if (!img) return;
+      const { srcs, hashes, display } = await getSettings();
+      let ph = img.dataset.phash;
+      if (!ph) {
+        ph = await computeImageHash(img);
       }
-    });
-    return true;
+      // update storage
+      const newSrcs   = srcs.includes(msg.src) ? srcs : [...srcs, msg.src];
+      const newHashes = ph && !hashes.includes(ph) ? [...hashes, ph] : hashes;
+      await saveSettings({ [SRC_KEY]: newSrcs, [HASH_KEY]: newHashes });
+
+      // immediately re-process
+      processImages();
+    })();
   }
-  
-  if (msg.action === "showImage" && msg.src) {
-    getSettings().then(async ({ hidden }) => {
-      const newHiddenList = hidden.filter(src => src !== msg.src);
-      await saveHiddenImages(newHiddenList);
-      
-      // Find all shells for this image and restore original images
-      document.querySelectorAll(`.${SHELL_CLASS}[data-original-src="${msg.src}"]`).forEach(shell => {
-        shell.remove();
-      });
-      
-      // Show all instances of this image
-      document.querySelectorAll(`img[src="${msg.src}"]`).forEach(img => {
-        img.style.display = "";
-        img.dataset.hidden = "false";
-      });
-      
-    });
-    return true;
+
+  if (msg.action === 'showImage') {
+    (async () => {
+      const { srcs, hashes } = await getSettings();
+      // remove URL match
+      const newSrcs   = srcs.filter(s => s !== msg.src);
+      // also remove any hash match tied to that src
+      const img = Array.from(document.images).find(i => i.src === msg.src);
+      let ph;
+      if (img) {
+        ph = img.dataset.phash || await computeImageHash(img);
+      }
+      const newHashes = ph ? hashes.filter(h => h !== ph) : hashes;
+
+      await saveSettings({ [SRC_KEY]: newSrcs, [HASH_KEY]: newHashes });
+      processImages();
+    })();
   }
 });
 
-// Listen for storage changes to update the UI
+// re-run on storage or DOM changes
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && (changes[HIDDEN_KEY] || changes[DISPLAY_KEY])) {
+  if (area==='local' && (changes[SRC_KEY]||changes[HASH_KEY]||changes[DISPLAY_KEY])) {
     processImages();
   }
 });
-
-// Listen for DOM changes to catch dynamically loaded images
-const observer = new MutationObserver((mutations) => {
-  let hasNewImages = false;
-  
-  for (const mutation of mutations) {
-    if (mutation.type === 'childList') {
-      const addedNodes = Array.from(mutation.addedNodes);
-      const hasImages = addedNodes.some(node => {
-        if (node.tagName === 'IMG') return true;
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          return node.querySelectorAll('img').length > 0;
-        }
-        return false;
-      });
-      
-      if (hasImages) {
-        hasNewImages = true;
-        break;
-      }
-    }
-  }
-  
-  if (hasNewImages) {
-    processImages();
-  }
-});
-
-// Start observing
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
-});
-
-// Initial processing on page load
-processImages();
-
-// But run again when the page is fully loaded (for images that load after DOMContentLoaded)
+new MutationObserver(processImages)
+  .observe(document.body,{ childList:true, subtree:true });
 window.addEventListener('load', processImages);
+processImages();
