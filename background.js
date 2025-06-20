@@ -37,9 +37,10 @@ chrome.contextMenus.onClicked.addListener(({ menuItemId, srcUrl, selectionText }
       if (!hiddenSrc.includes(srcUrl)) {
         hiddenSrc.push(srcUrl);
         hiddenHashes.push(hashString(srcUrl));
-        chrome.storage.local.set({ hiddenSrc, hiddenHashes });
+        chrome.storage.local.set({ hiddenSrc, hiddenHashes }, () => {
+          chrome.tabs.sendMessage(tab.id, { action: 'hideImage', src: srcUrl });
+        });
       }
-      chrome.tabs.sendMessage(tab.id, { action: 'hideImage', src: srcUrl });
     });
   }
   if (menuItemId === SHELL_MENU_ID && selectionText) {

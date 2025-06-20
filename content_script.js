@@ -30,24 +30,40 @@ function computeImageHash(img) {
       canvas.width = 8; // Downscale to 8x8
       canvas.height = 8;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = imageData.data;
+      // Set crossOrigin attribute to avoid tainting
+      const tempImg = new Image();
+      tempImg.crossOrigin = 'anonymous';
+      tempImg.onload = () => {
+        try {
+          ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
 
-      // Convert to grayscale and calculate average brightness
-      const grayscale = [];
-      let totalBrightness = 0;
-      for (let i = 0; i < pixels.length; i += 4) {
-        const brightness = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-        grayscale.push(brightness);
-        totalBrightness += brightness;
-      }
-      const avgBrightness = totalBrightness / grayscale.length;
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const pixels = imageData.data;
 
-      // Generate hash based on brightness compared to average
-      const hash = grayscale.map(b => (b > avgBrightness ? 1 : 0)).join('');
-      resolve(hash);
+          // Convert to grayscale and calculate average brightness
+          const grayscale = [];
+          let totalBrightness = 0;
+          for (let i = 0; i < pixels.length; i += 4) {
+            const brightness = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+            grayscale.push(brightness);
+            totalBrightness += brightness;
+          }
+          const avgBrightness = totalBrightness / grayscale.length;
+
+          // Generate hash based on brightness compared to average
+          const hash = grayscale.map(b => (b > avgBrightness ? 1 : 0)).join('');
+          resolve(hash);
+        } catch (error) {
+          console.warn('Image processing failed due to CORS restrictions:', img.src);
+          resolve(null); // Fallback: return null for tainted images
+        }
+      };
+      tempImg.onerror = () => {
+        console.error('Failed to load image:', img.src);
+        resolve(null); // Fallback: return null for failed loads
+      };
+      tempImg.src = img.src;
     } catch (error) {
       reject(error);
     }
@@ -143,8 +159,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const newHashes = ph && !hashes.includes(ph) ? [...hashes, ph] : hashes;
       await saveSettings({ [SRC_KEY]: newSrcs, [HASH_KEY]: newHashes });
 
-      // immediately re-process
-      processImages();
+      // Hide the image immediately
+      img.replaceWith(createShell(img, display));
     })();
   }
 
