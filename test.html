@@ -3,219 +3,556 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perceptual Hash Test - RemoveAIArt</title>
+    <title>Perceptual Hash Tester - RemoveAIArt</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+        
+        :root {
+            /* Twilight Color Palette */
+            --twilight-deep: #0a0a1a;
+            --twilight-mid: #1a1b3a;
+            --twilight-light: #2d2d5f;
+            --twilight-accent: #3d3d7a;
+            
+            /* Cinematic Colors */
+            --moonlight: #e94560;
+            --aurora-pink: #ff6b9d;
+            --aurora-purple: #c44cff;
+            --aurora-blue: #4cc9ff;
+            --aurora-cyan: #4cffdf;
+            
+            /* Glass & Effects */
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-shadow: rgba(0, 0, 0, 0.25);
+            --glass-blur: blur(16px);
+            
+            /* Text Colors */
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-accent: var(--aurora-cyan);
+            
+            /* Shadows */
+            --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.15);
+            --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.25);
+            --shadow-hard: 0 16px 64px rgba(0, 0, 0, 0.4);
+            --glow-pink: 0 0 20px rgba(255, 107, 157, 0.3);
+            --glow-blue: 0 0 20px rgba(76, 201, 255, 0.3);
+        }
+
+        * {
             margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--twilight-deep) 0%, var(--twilight-mid) 50%, var(--twilight-light) 100%);
+            color: var(--text-primary);
             min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        /* Animated Background Effects */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 15% 25%, rgba(255, 107, 157, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 85% 30%, rgba(196, 76, 255, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 45% 80%, rgba(76, 201, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(76, 255, 223, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -2;
+            animation: auroraShift 20s ease-in-out infinite;
+        }
+
+        @keyframes auroraShift {
+            0%, 100% { opacity: 1; transform: translateY(0px); }
+            50% { opacity: 0.8; transform: translateY(-20px); }
+        }
+
+        /* Floating particles */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                radial-gradient(circle at 80% 80%, rgba(76, 201, 255, 0.05) 1px, transparent 1px),
+                radial-gradient(circle at 40% 40%, rgba(255, 107, 157, 0.04) 1px, transparent 1px);
+            background-size: 100px 100px, 150px 150px, 80px 80px;
+            pointer-events: none;
+            z-index: -1;
+            animation: float 30s linear infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px) translateX(0px); }
+            33% { transform: translateY(-20px) translateX(10px); }
+            66% { transform: translateY(10px) translateX(-5px); }
+            100% { transform: translateY(0px) translateX(0px); }
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Header Styling */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
         }
         
         h1 {
-            text-align: center;
-            color: #4a5568;
-            margin-bottom: 10px;
-            font-size: 2.5em;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--aurora-pink), var(--aurora-purple), var(--aurora-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 30px rgba(255, 107, 157, 0.3);
+            animation: titleGlow 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes titleGlow {
+            0% { filter: brightness(1) drop-shadow(0 0 10px rgba(255, 107, 157, 0.3)); }
+            100% { filter: brightness(1.1) drop-shadow(0 0 20px rgba(255, 107, 157, 0.5)); }
         }
         
         .subtitle {
-            text-align: center;
-            color: #718096;
-            margin-bottom: 30px;
-            font-size: 1.1em;
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.7;
         }
         
+        /* Glass Panel Styling */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: var(--shadow-medium);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+        }
+        
+        /* Upload Section */
         .upload-section {
+            padding: 2.5rem;
+            margin-bottom: 2rem;
             text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 2px dashed #cbd5e0;
-            border-radius: 10px;
-            background: #f7fafc;
+        }
+
+        .upload-section h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
         }
         
-        .file-input {
-            margin: 10px;
-            padding: 10px 20px;
+        .btn {
+            padding: 1rem 2rem;
             border: none;
-            background: #4299e1;
-            color: white;
-            border-radius: 5px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
             cursor: pointer;
-            font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 160px;
+            justify-content: center;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
         }
         
-        .file-input:hover {
-            background: #3182ce;
-        }
-        
-        .placeholder-btn {
-            margin: 10px;
-            padding: 10px 20px;
-            border: none;
-            background: #48bb78;
+        .btn-primary {
+            background: linear-gradient(135deg, var(--aurora-pink), var(--aurora-purple));
             color: white;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
+            box-shadow: var(--glow-pink);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--glow-pink), var(--shadow-medium);
         }
         
-        .placeholder-btn:hover {
-            background: #38a169;
+        /* Darken the secondary button for better contrast */
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--aurora-blue), #3cbfbf); /* Darker cyan */
+            color: white;
+            box-shadow: var(--glow-blue);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--glow-blue), var(--shadow-medium);
         }
         
+        /* Original Section */
         .original-section {
             text-align: center;
-            margin: 30px 0;
+            margin: 2rem 0;
+            padding: 2rem;
+        }
+
+        .original-section h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .image-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 1rem;
         }
         
         .original-image {
-            max-width: 300px;
-            max-height: 300px;
-            border: 3px solid #4299e1;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        
-        .variations-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
-        }
-        
-        .variation-card {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            max-width: 350px;
+            max-height: 350px;
+            border-radius: 16px;
+            box-shadow: var(--shadow-hard);
             transition: transform 0.3s ease;
+            border: 2px solid var(--glass-border);
+        }
+
+        .original-image:hover {
+            transform: scale(1.02);
         }
         
-        .variation-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .variation-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #4a5568;
-            font-size: 14px;
-        }
-        
-        .variation-image {
-            max-width: 200px;
-            max-height: 200px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-        
-        .hash-info {
-            font-family: 'Courier New', monospace;
-            font-size: 10px;
-            color: #718096;
-            word-break: break-all;
-            background: #edf2f7;
-            padding: 5px;
-            border-radius: 3px;
-            margin-top: 5px;
-        }
-        
+        /* Generate Button */
         .generate-btn {
             display: block;
-            margin: 20px auto;
-            padding: 15px 30px;
-            background: #805ad5;
+            margin: 2rem auto;
+            padding: 1.25rem 3rem;
+            background: linear-gradient(135deg, var(--twilight-accent), var(--aurora-purple));
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 18px;
+            border-radius: 16px;
+            font-size: 1.25rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-medium);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .generate-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .generate-btn:hover::before {
+            left: 100%;
         }
         
         .generate-btn:hover {
-            background: #6b46c1;
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hard), 0 0 30px rgba(196, 76, 255, 0.4);
         }
         
         .generate-btn:disabled {
-            background: #a0aec0;
+            background: var(--glass-bg);
+            color: var(--text-muted);
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
         
+        /* Instructions Panel */
         .instructions {
-            background: #e6fffa;
-            border-left: 4px solid #38b2ac;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 5px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border-left: 4px solid var(--aurora-cyan);
         }
         
         .instructions h3 {
-            margin-top: 0;
-            color: #2c7a7b;
+            margin-bottom: 1rem;
+            color: var(--aurora-cyan);
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .instructions ol {
+            margin-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .instructions li {
+            margin-bottom: 0.5rem;
+            line-height: 1.6;
         }
         
+        /* Variations Grid */
+        .variations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .variation-card {
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 16px;
+            position: relative;
+        }
+
+        .variation-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            z-index: -1;
+        }
+        
+        .variation-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-hard);
+        }
+
+        .variation-card:hover::before {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+        
+        .variation-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .variation-image {
+            max-width: 220px;
+            max-height: 220px;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            box-shadow: var(--shadow-medium);
+            transition: transform 0.3s ease;
+            border: 1px solid var(--glass-border);
+        }
+
+        .variation-image:hover {
+            transform: scale(1.05);
+        }
+        
+        .hash-info {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            word-break: break-all;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-top: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 400;
+        }
+        
+        /* Loading State */
         .loading {
             text-align: center;
-            color: #718096;
+            color: var(--text-secondary);
             font-style: italic;
+            font-size: 1.1rem;
+            margin: 2rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .loading::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--glass-border);
+            border-top: 2px solid var(--aurora-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                min-width: 200px;
+            }
+
+            .variations-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .upload-section,
+            .original-section,
+            .instructions {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Scroll animations */
+        @media (prefers-reduced-motion: no-preference) {
+            .variation-card {
+                opacity: 0;
+                transform: translateY(20px);
+                animation: fadeInUp 0.6s ease forwards;
+            }
+
+            .variation-card:nth-child(1) { animation-delay: 0.1s; }
+            .variation-card:nth-child(2) { animation-delay: 0.2s; }
+            .variation-card:nth-child(3) { animation-delay: 0.3s; }
+            .variation-card:nth-child(4) { animation-delay: 0.4s; }
+            .variation-card:nth-child(5) { animation-delay: 0.5s; }
+            .variation-card:nth-child(6) { animation-delay: 0.6s; }
+            .variation-card:nth-child(7) { animation-delay: 0.7s; }
+            .variation-card:nth-child(8) { animation-delay: 0.8s; }
+            .variation-card:nth-child(9) { animation-delay: 0.9s; }
+            .variation-card:nth-child(10) { animation-delay: 1.0s; }
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎨 Perceptual Hash Tester</h1>
-        <p class="subtitle">Test your RemoveAIArt extension with programmatically generated image variations</p>
+        <div class="header">
+            <h1>🌌 Perceptual Hash Tester</h1>
+            <p class="subtitle">Test the RemoveAIArt extension with programmatically generated image variations using cinematic twilight aesthetics</p>
+        </div>
         
-        <div class="instructions">
-            <h3>Instructions:</h3>
+        <div class="glass-panel instructions">
+            <h3>🎨 Instructions</h3>
             <ol>
-                <li>Upload an image or use a placeholder</li>
-                <li>Click "Generate Variations" to create 10 different versions</li>
+                <li>Upload an image or use a placeholder to begin testing</li>
+                <li>Click "Generate Variations" to create 10 algorithmically modified versions</li>
                 <li>Right-click on the original image and select "Mark as AI Generated"</li>
-                <li>Observe which variations are also hidden by your extension</li>
-                <li>Use this to fine-tune your perceptual hashing algorithm</li>
+                <li>Observe which variations are also detected and hidden by the extension</li>
+                <li>Fine-tune the perceptual hashing algorithm effectiveness</li>
+                <li>Le repeat</li>
             </ol>
         </div>
         
-        <div class="upload-section">
-            <h3>Choose Reference Image</h3>
-            <input type="file" id="fileInput" accept="image/*" style="display: none;">
-            <button class="file-input" onclick="document.getElementById('fileInput').click()">
-                📁 Upload Image
-            </button>
-            <button class="placeholder-btn" onclick="usePlaceholder()">
-                🖼️ Use Placeholder
-            </button>
+        <div class="glass-panel upload-section">
+            <h3>🎯 Choose Reference Image</h3>
+            <div class="button-group">
+                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    📁 Upload Image
+                </button>
+                <button class="btn btn-secondary" onclick="usePlaceholder()">
+                    🖼️ Use Placeholder
+                </button>
+            </div>
         </div>
         
-        <div class="original-section" id="originalSection" style="display: none;">
-            <h3>Original Image</h3>
-            <img id="originalImage" class="original-image" alt="Original">
+        <div class="glass-panel original-section" id="originalSection" style="display: none;">
+            <h3>🎨 Original Image</h3>
+            <div class="image-container">
+                <img id="originalImage" class="original-image" alt="Original">
+            </div>
             <div class="hash-info" id="originalHash"></div>
         </div>
         
         <button class="generate-btn" id="generateBtn" onclick="generateVariations()" disabled>
-            Generate 10 Variations
+            🧪 Generate 10 Variations
         </button>
         
         <div id="loadingMessage" class="loading" style="display: none;">
-            Generating variations... Please wait.
+            Generating cinematic variations... Please wait.
         </div>
         
         <div class="variations-grid" id="variationsGrid"></div>
