@@ -194,7 +194,7 @@ function createShell(img) {
     display:    getComputedStyle(img).display,
     margin:     getComputedStyle(img).margin,
     border:     '1px solid #444',
-    background: '#eee',
+    // background: '#eee',
     cursor:     'pointer',
     textAlign:  'center',
     lineHeight: `${height}px`

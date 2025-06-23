@@ -141,7 +141,7 @@
             font-size: 1.25rem;
             color: var(--text-secondary);
             font-weight: 300;
-            max-width: 600px;
+            max-width: 1600px;
             margin: 0 auto;
             line-height: 1.7;
         }
@@ -511,18 +511,16 @@
     <div class="container">
         <div class="header">
             <h1>🌌 Perceptual Hash Tester</h1>
-            <p class="subtitle">Test the RemoveAIArt extension with programmatically generated image variations using cinematic twilight aesthetics</p>
+            <p class="subtitle">Test the RemoveAIArt extension with programmatically generated image variations</p>
         </div>
         
         <div class="glass-panel instructions">
             <h3>🎨 Instructions</h3>
             <ol>
                 <li>Upload an image or use a placeholder to begin testing</li>
-                <li>Click "Generate Variations" to create 10 algorithmically modified versions</li>
+                <li>Click "Generate Variations" to create 12 algorithmically modified versions</li>
                 <li>Right-click on the original image and select "Mark as AI Generated"</li>
                 <li>Observe which variations are also detected and hidden by the extension</li>
-                <li>Fine-tune the perceptual hashing algorithm effectiveness</li>
-                <li>Le repeat</li>
             </ol>
         </div>
         
@@ -548,7 +546,7 @@
         </div>
         
         <button class="generate-btn" id="generateBtn" onclick="generateVariations()" disabled>
-            🧪 Generate 10 Variations
+            🧪 Generate 12 Variations
         </button>
         
         <div id="loadingMessage" class="loading" style="display: none;">
@@ -657,7 +655,9 @@
                 { name: 'Gaussian Blur', fn: applyBlur, param: 1 },
                 { name: 'Noise Addition', fn: addNoise, param: 10 },
                 { name: 'Rotation 5°', fn: rotate, param: 5 },
-                { name: 'Scale 90%', fn: scale, param: 0.9 }
+                { name: 'Scale 90%', fn: scale, param: 0.9 },
+                { name: 'Brightness +10%', fn: adjustBrightness, param: 10 },
+                { name: 'Contrast -10%', fn: adjustContrast, param: 0.9 }
             ];
             
             for (let i = 0; i < variations.length; i++) {
