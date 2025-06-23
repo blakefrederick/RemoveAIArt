@@ -4,6 +4,34 @@ const HASH_KEY   = "hiddenHashes";
 const DISPLAY_KEY= "displayMode";
 const SHELL_CLASS= "image-shell";
 
+// Debug flag - set to false to disable logging
+const DEBUG = true;
+function debugLog(...args) {
+  if (DEBUG) console.log('[RemoveAIArt]', ...args);
+}
+
+// Track the last right-clicked image
+let lastClickedImage = null;
+
+// Add event listener to track right-clicks on images
+document.addEventListener('contextmenu', (event) => {
+  if (event.target.tagName === 'IMG') {
+    lastClickedImage = event.target;
+    debugLog('Right-clicked on image:', event.target.src.substring(0, 100));
+  }
+});
+
+// Simple string hash function
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
+}
+
 // wrapper for storage
 function getSettings() {
   return new Promise(r => {
@@ -72,25 +100,61 @@ function computeImageHash(img) {
 
 // decorate page images
 async function processImages() {
+  debugLog('processImages() called');
   const { srcs, hashes, display } = await getSettings();
+  debugLog('Current settings:', { srcs, hashes, display });
 
-  document.querySelectorAll('img').forEach(async img => {
+  const images = document.querySelectorAll('img');
+  debugLog(`Found ${images.length} images to process`);
+
+  images.forEach(async img => {
     if (img.dataset.processed === 'true') return;
+    
+    debugLog('Processing image:', img.src.substring(0, 100));
+    
+    // Wait for image to load if it hasn't yet
+    if (!img.complete && img.src) {
+      debugLog('Waiting for image to load...');
+      await new Promise((resolve) => {
+        if (img.complete) {
+          resolve();
+        } else {
+          img.onload = resolve;
+          img.onerror = resolve;
+          // Timeout after 5 seconds
+          setTimeout(resolve, 5000);
+        }
+      });
+    }
+    
     img.dataset.processed = 'true';
 
     // compute or reuse hash
     let ph = img.dataset.phash;
-    if (!ph) {
+    if (!ph && img.complete && img.naturalWidth > 0) {
       try {
+        debugLog('Computing perceptual hash...');
         ph = await computeImageHash(img);
         img.dataset.phash = ph;
-      } catch {
-        // if cannot compute, skip perceptual match
+        debugLog('Computed hash:', ph);
+      } catch (error) {
+        debugLog('Failed to compute hash:', error);
         ph = null;
       }
     }
 
-    const isHidden = srcs.includes(img.src) || (ph && hashes.includes(ph));
+    // Check for direct URL match or data URL hash match
+    let urlMatch = srcs.includes(img.src);
+    if (!urlMatch && img.src.startsWith('data:')) {
+      // Check if there's a hash for this data URL
+      const dataHash = 'data-hash:' + hashString(img.src);
+      urlMatch = srcs.includes(dataHash);
+      debugLog('Checking data URL hash:', dataHash, 'Match:', urlMatch);
+    }
+
+    const isHidden = urlMatch || (ph && hashes.includes(ph));
+    debugLog('Image hidden status:', isHidden, 'URL match:', urlMatch, 'Hash match:', ph && hashes.includes(ph));
+    
     if (isHidden) {
       if (display === 'indicate') {
         if (!document.querySelector(`.${SHELL_CLASS}[data-original-src="${img.src}"]`)) {
@@ -145,10 +209,24 @@ function createShell(img) {
 
 // hide-image handler
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  debugLog('Received message:', msg);
+  
+  if (msg.action === 'getClickedImageUrl') {
+    debugLog('Getting clicked image URL, lastClickedImage:', lastClickedImage);
+    if (lastClickedImage && lastClickedImage.src) {
+      sendResponse({ imageUrl: lastClickedImage.src });
+    } else {
+      sendResponse({ imageUrl: null });
+    }
+    return true; // Keep the message channel open for async response
+  }
+  
   if (msg.action === 'hideImage') {
     (async () => {
       const img = Array.from(document.images).find(i => i.src === msg.src);
       if (!img) return;
+      debugLog('Found image to hide:', img);
+      
       const { srcs, hashes, display } = await getSettings();
       let ph = img.dataset.phash;
       if (!ph) {
@@ -161,15 +239,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
       // Hide the image immediately
       img.replaceWith(createShell(img, display));
+      debugLog('Image hidden and replaced with shell');
     })();
   }
 
   if (msg.action === 'showImage') {
     (async () => {
       const { srcs, hashes } = await getSettings();
-      // remove URL match
-      const newSrcs   = srcs.filter(s => s !== msg.src);
-      // also remove any hash match tied to that src
+      
+      // remove URL match (including data URL hash)
+      let newSrcs = srcs.filter(s => s !== msg.src);
+      if (msg.src.startsWith('data:')) {
+        const dataHash = 'data-hash:' + hashString(msg.src);
+        newSrcs = newSrcs.filter(s => s !== dataHash);
+      }
+      
+      // also remove any perceptual hash match tied to that src
       const img = Array.from(document.images).find(i => i.src === msg.src);
       let ph;
       if (img) {
@@ -189,7 +274,34 @@ chrome.storage.onChanged.addListener((changes, area) => {
     processImages();
   }
 });
-new MutationObserver(processImages)
-  .observe(document.body,{ childList:true, subtree:true });
+
+// Debounced processImages to avoid excessive calls
+let processTimeout;
+function debouncedProcessImages() {
+  clearTimeout(processTimeout);
+  processTimeout = setTimeout(processImages, 100);
+}
+
+new MutationObserver((mutations) => {
+  let hasImageChanges = false;
+  mutations.forEach(mutation => {
+    if (mutation.type === 'childList') {
+      mutation.addedNodes.forEach(node => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.tagName === 'IMG' || node.querySelector && node.querySelector('img')) {
+            hasImageChanges = true;
+          }
+        }
+      });
+    }
+  });
+  
+  if (hasImageChanges) {
+    debouncedProcessImages();
+  }
+}).observe(document.body, { childList: true, subtree: true });
+
 window.addEventListener('load', processImages);
 processImages();
+
+debugLog('Content script loaded and initialized');

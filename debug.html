@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Debug Test - RemoveAIArt</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .test-image {
+            max-width: 300px;
+            margin: 10px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+        
+        .instructions {
+            background: #e6f3ff;
+            border-left: 4px solid #007acc;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Debug Test Page</h1>
+        <p>Simple test page to debug the RemoveAIArt extension</p>
+        
+        <div class="instructions">
+            <h3>Debug Instructions:</h3>
+            <ol>
+                <li>Open Chrome DevTools (F12)</li>
+                <li>Check the Console tab for any extension errors</li>
+                <li>Right-click on any image below</li>
+                <li>Look for "Mark as AI Generated" in the context menu</li>
+                <li>Check Application > Storage > Extension storage > RemoveAIArt</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 1: Regular HTTP Image</h2>
+            <img class="test-image" src="https://picsum.photos/300/200?random=1" alt="Test Image 1">
+            <div class="debug-info">
+                Source: https://picsum.photos/300/200?random=1<br>
+                Type: Regular HTTP image<br>
+                Expected: Should show context menu
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 2: Another HTTP Image</h2>
+            <img class="test-image" src="https://picsum.photos/250/180?random=2" alt="Test Image 2">
+            <div class="debug-info">
+                Source: https://picsum.photos/250/180?random=2<br>
+                Type: Regular HTTP image<br>
+                Expected: Should show context menu
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 3: Base64 Image</h2>
+            <img class="test-image" id="base64Image" alt="Base64 Test Image">
+            <div class="debug-info" id="base64Info">
+                Loading base64 image...
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Extension Status</h2>
+            <div class="debug-info" id="extensionStatus">
+                Checking extension status...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Create a simple base64 image
+        function createBase64Image() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 150;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw a simple gradient
+            const gradient = ctx.createLinearGradient(0, 0, 200, 150);
+            gradient.addColorStop(0, '#ff6b6b');
+            gradient.addColorStop(1, '#4ecdc4');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 200, 150);
+            
+            // Add some text
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Test Image', 100, 80);
+            
+            return canvas.toDataURL();
+        }
+        
+        // Set up base64 image
+        window.addEventListener('load', function() {
+            const base64Img = document.getElementById('base64Image');
+            const base64Src = createBase64Image();
+            base64Img.src = base64Src;
+            
+            document.getElementById('base64Info').innerHTML = 
+                `Source: ${base64Src.substring(0, 50)}...<br>` +
+                `Type: Base64 data URL<br>` +
+                `Length: ${base64Src.length} characters<br>` +
+                `Expected: Should show context menu`;
+        });
+        
+        // Check if extension is working
+        function checkExtensionStatus() {
+            const statusDiv = document.getElementById('extensionStatus');
+            
+            // Check if content script variables are available
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                statusDiv.innerHTML = '✅ Chrome APIs available<br>';
+                
+                // Try to read extension storage
+                chrome.storage.local.get(['hiddenSrc', 'hiddenHashes'], function(data) {
+                    statusDiv.innerHTML += `📦 Storage: hiddenSrc=${data.hiddenSrc?.length || 0}, hiddenHashes=${data.hiddenHashes?.length || 0}<br>`;
+                });
+            } else {
+                statusDiv.innerHTML = '❌ Chrome APIs not available<br>';
+            }
+            
+            // Check if images are being processed
+            setTimeout(() => {
+                const processedImages = document.querySelectorAll('img[data-processed="true"]');
+                statusDiv.innerHTML += `🖼️  Processed images: ${processedImages.length}<br>`;
+                
+                const images = document.querySelectorAll('img');
+                statusDiv.innerHTML += `📊 Total images: ${images.length}<br>`;
+            }, 2000);
+        }
+        
+        // Run checks after page load
+        window.addEventListener('load', function() {
+            setTimeout(checkExtensionStatus, 1000);
+        });
+        
+        // Add right-click logging
+        document.addEventListener('contextmenu', function(e) {
+            if (e.target.tagName === 'IMG') {
+                console.log('Right-clicked on image:', e.target.src);
+                console.log('Image element:', e.target);
+            }
+        });
+    </script>
+</body>
+</html>
